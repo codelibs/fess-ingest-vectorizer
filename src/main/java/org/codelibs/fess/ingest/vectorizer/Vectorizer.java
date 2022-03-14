@@ -34,11 +34,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class Vectorizer {
+    private static final Logger logger = LoggerFactory.getLogger(Vectorizer.class);
+
     private static final String DEFAULT_LANG = "en";
 
     private static final float[] EMPTY_VALUE = {};
-
-    private static final Logger logger = LoggerFactory.getLogger(Vectorizer.class);
 
     protected Set<String> supportedLanguages = Collections.emptySet();
 
@@ -126,7 +126,7 @@ public class Vectorizer {
                 }
                 logger.warn("No vectorizing data.");
             } else {
-                logger.warn("Failed to vectorize: ", response.getContentAsString());
+                logger.warn("Failed to vectorize: {}", response.getContentAsString());
             }
         } catch (final IOException e) {
             logger.warn("Failed to access to {}", url, e);
@@ -149,6 +149,10 @@ public class Vectorizer {
             return false;
         }
         return true;
+    }
+
+    public String[] getFields() {
+        return fields;
     }
 
     public static Builder create() {

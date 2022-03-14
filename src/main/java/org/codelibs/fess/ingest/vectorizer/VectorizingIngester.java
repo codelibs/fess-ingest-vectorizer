@@ -15,25 +15,98 @@
  */
 package org.codelibs.fess.ingest.vectorizer;
 
+import java.io.IOException;
 import java.util.Map;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
+import org.codelibs.fesen.client.EngineInfo.EngineType;
+import org.codelibs.fess.es.client.SearchEngineClient;
 import org.codelibs.fess.ingest.Ingester;
+import org.codelibs.fess.mylasta.direction.FessConfig;
 import org.codelibs.fess.util.ComponentUtil;
+import org.opensearch.action.admin.indices.mapping.get.GetFieldMappingsResponse;
+import org.opensearch.action.admin.indices.mapping.get.GetFieldMappingsResponse.FieldMappingMetadata;
+import org.opensearch.action.support.master.AcknowledgedResponse;
+import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.XContentType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class VectorizingIngester extends Ingester {
+    private static final Logger logger = LoggerFactory.getLogger(VectorizingIngester.class);
+
     protected Vectorizer vectorizer;
 
     protected String fieldSuffix = "_vector";
 
     @PostConstruct
     public void init() {
-        vectorizer = Vectorizer.create()//
-                .url(ComponentUtil.getFessConfig().getSystemProperty("ingest.vectorizer.url"))//
-                .fields(ComponentUtil.getFessConfig().getSystemProperty("ingest.vectorizer.fields"))//
-                .build();
+        EngineType engineType = getEngineType();
+        if (engineType == EngineType.OPENSEARCH1) {
+            logger.info("Search Engine: {}", engineType);
+            vectorizer = Vectorizer.create()//
+                    .url(ComponentUtil.getFessConfig().getSystemProperty("ingest.vectorizer.url"))//
+                    .fields(ComponentUtil.getFessConfig().getSystemProperty("ingest.vectorizer.fields"))//
+                    .build();
+            createFields();
+        } else {
+            logger.warn("Your search engine is not supported: {}", engineType);
+        }
+    }
+
+    protected EngineType getEngineType() {
+        return ComponentUtil.getSearchEngineClient().getEngineInfo().getType();
+    }
+
+    protected void createFields() {
+        final int dimension = Integer.parseInt(ComponentUtil.getFessConfig().getSystemProperty("ingest.vectorizer.dimension", "768"));
+        for (String field : vectorizer.getFields()) {
+            createField(field, dimension);
+        }
+    }
+
+    protected void createField(final String field, final int dimension) {
+        FessConfig fessConfig = ComponentUtil.getFessConfig();
+        SearchEngineClient client = ComponentUtil.getSearchEngineClient();
+        String index = fessConfig.getIndexDocumentUpdateIndex();
+
+        GetFieldMappingsResponse fieldMappingsResponse = client.admin().indices().prepareGetFieldMappings()//
+                .setIndices(index)//
+                .setFields(field)//
+                .execute().actionGet();
+        Map<String, Map<String, FieldMappingMetadata>> fieldMappings = fieldMappingsResponse.mappings().get(index);
+        if (!fieldMappings.isEmpty()) {
+            if (logger.isDebugEnabled()) {
+                logger.debug("{} field exists in {} index.", field, index);
+            }
+            return;
+        }
+
+        try {
+            final XContentBuilder mappingBuilder = XContentFactory.jsonBuilder()//
+                    .startObject()//
+                    .startObject("properties")//
+                    .startObject(field)//
+                    .field("type", "knn_vector")//
+                    .field("dimension", dimension)//
+                    .endObject()//
+                    .endObject()//
+                    .endObject();
+            final String source = BytesReference.bytes(mappingBuilder).utf8ToString();
+            AcknowledgedResponse response =
+                    client.admin().indices().preparePutMapping(index).setSource(source, XContentType.JSON).execute().actionGet();
+            if (response.isAcknowledged()) {
+                logger.info("{} field is created in {} index.", field, index);
+            } else {
+                logger.warn("Failed to create {} field in {} index.", field, index);
+            }
+        } catch (IOException e) {
+            logger.warn("Failed to create {} field in {} index.", field, index, e);
+        }
     }
 
     @PreDestroy
@@ -43,7 +116,9 @@ public class VectorizingIngester extends Ingester {
 
     @Override
     protected Map<String, Object> process(final Map<String, Object> target) {
-        vectorizer.vectorize(target).entrySet().stream().forEach(e -> target.put(e.getKey() + fieldSuffix, e.getValue()));
+        if (vectorizer != null) {
+            vectorizer.vectorize(target).entrySet().stream().forEach(e -> target.put(e.getKey() + fieldSuffix, e.getValue()));
+        }
         return target;
     }
 

@@ -33,14 +33,14 @@ public class VectorizerTest extends PlainTestCase {
 
     private static final String IMAGE_TAG = "ghcr.io/codelibs/fess-text-vectorizer:" + VERSION;
 
-    GenericContainer server;
+    GenericContainer vectorizingServer;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        server = new GenericContainer<>(DockerImageName.parse(IMAGE_TAG))//
+        vectorizingServer = new GenericContainer<>(DockerImageName.parse(IMAGE_TAG))//
                 .withExposedPorts(8900);
-        server.start();
+        vectorizingServer.start();
 
         final String url = getServerUrl();
         logger.info("Vectorizing Server:  " + url);
@@ -64,12 +64,12 @@ public class VectorizerTest extends PlainTestCase {
     }
 
     private String getServerUrl() {
-        return "http://" + server.getHost() + ":" + server.getFirstMappedPort();
+        return "http://" + vectorizingServer.getHost() + ":" + vectorizingServer.getFirstMappedPort();
     }
 
     @Override
     protected void tearDown() throws Exception {
-        server.stop();
+        vectorizingServer.stop();
         super.tearDown();
     }
 
