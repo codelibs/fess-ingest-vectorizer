@@ -38,13 +38,15 @@ public class Vectorizer {
 
     private static final String DEFAULT_LANG = "en";
 
-    private static final float[] EMPTY_VALUE = {};
-
     protected Set<String> supportedLanguages = Collections.emptySet();
 
     protected String url;
 
     protected String[] fields;
+
+    protected int dimension;
+
+    protected float[] emptyValue;
 
     protected void initialize() {
         try (CurlResponse response = Curl.get(url).header("Content-Type", "application/json").execute()) {
@@ -59,12 +61,13 @@ public class Vectorizer {
         } catch (final IOException e) {
             logger.warn("Failed to access to {}", url, e);
         }
+        emptyValue = new float[dimension];
     }
 
     protected Map<String, float[]> emtpyResult() {
         final Map<String, float[]> map = new HashMap<>(fields.length);
         for (final String f : fields) {
-            map.put(f, EMPTY_VALUE);
+            map.put(f, emptyValue);
         }
         return map;
     }
@@ -162,6 +165,7 @@ public class Vectorizer {
     public static class Builder {
         private String url = "http://localhost:8900";
         private String[] fields = { "content" };
+        private int dimension = 768;
 
         protected Builder() {
             // nothing
@@ -188,10 +192,16 @@ public class Vectorizer {
             return this;
         }
 
+        public Builder dimension(final int dimension) {
+            this.dimension = dimension;
+            return this;
+        }
+
         public Vectorizer build() {
             final Vectorizer instance = new Vectorizer();
             instance.url = this.url;
             instance.fields = this.fields;
+            instance.dimension = this.dimension;
             instance.initialize();
             return instance;
         }

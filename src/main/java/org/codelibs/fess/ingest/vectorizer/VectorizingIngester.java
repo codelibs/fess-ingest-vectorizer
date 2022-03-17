@@ -48,11 +48,15 @@ public class VectorizingIngester extends Ingester {
         EngineType engineType = getEngineType();
         if (engineType == EngineType.OPENSEARCH1) {
             logger.info("Search Engine: {}", engineType);
+            final int dimension = Integer.parseInt(ComponentUtil.getFessConfig().getSystemProperty("ingest.vectorizer.dimension", "768"));
+            final String url = ComponentUtil.getFessConfig().getSystemProperty("ingest.vectorizer.url");
+            final String fields = ComponentUtil.getFessConfig().getSystemProperty("ingest.vectorizer.fields");
             vectorizer = Vectorizer.create()//
-                    .url(ComponentUtil.getFessConfig().getSystemProperty("ingest.vectorizer.url"))//
-                    .fields(ComponentUtil.getFessConfig().getSystemProperty("ingest.vectorizer.fields"))//
+                    .url(url)//
+                    .fields(fields)//
+                    .dimension(dimension)//
                     .build();
-            createFields();
+            createFields(dimension);
         } else {
             logger.warn("Your search engine is not supported: {}", engineType);
         }
@@ -62,51 +66,53 @@ public class VectorizingIngester extends Ingester {
         return ComponentUtil.getSearchEngineClient().getEngineInfo().getType();
     }
 
-    protected void createFields() {
-        final int dimension = Integer.parseInt(ComponentUtil.getFessConfig().getSystemProperty("ingest.vectorizer.dimension", "768"));
+    protected void createFields(final int dimension) {
         for (String field : vectorizer.getFields()) {
-            createField(field, dimension);
+            createField(field + fieldSuffix, dimension);
         }
     }
 
     protected void createField(final String field, final int dimension) {
         FessConfig fessConfig = ComponentUtil.getFessConfig();
         SearchEngineClient client = ComponentUtil.getSearchEngineClient();
-        String index = fessConfig.getIndexDocumentUpdateIndex();
+        String alias = fessConfig.getIndexDocumentUpdateIndex();
 
         GetFieldMappingsResponse fieldMappingsResponse = client.admin().indices().prepareGetFieldMappings()//
-                .setIndices(index)//
+                .setIndices(alias)//
                 .setFields(field)//
                 .execute().actionGet();
-        Map<String, Map<String, FieldMappingMetadata>> fieldMappings = fieldMappingsResponse.mappings().get(index);
-        if (!fieldMappings.isEmpty()) {
-            if (logger.isDebugEnabled()) {
-                logger.debug("{} field exists in {} index.", field, index);
+        final Map<String, Map<String, Map<String, FieldMappingMetadata>>> mappings = fieldMappingsResponse.mappings();
+        mappings.keySet().stream().forEach(index -> {
+            Map<String, Map<String, FieldMappingMetadata>> fieldMappings = mappings.get(index);
+            if (!fieldMappings.isEmpty()) {
+                if (logger.isDebugEnabled()) {
+                    logger.debug("{} field exists in {} index.", field, index);
+                }
+                return;
             }
-            return;
-        }
 
-        try {
-            final XContentBuilder mappingBuilder = XContentFactory.jsonBuilder()//
-                    .startObject()//
-                    .startObject("properties")//
-                    .startObject(field)//
-                    .field("type", "knn_vector")//
-                    .field("dimension", dimension)//
-                    .endObject()//
-                    .endObject()//
-                    .endObject();
-            final String source = BytesReference.bytes(mappingBuilder).utf8ToString();
-            AcknowledgedResponse response =
-                    client.admin().indices().preparePutMapping(index).setSource(source, XContentType.JSON).execute().actionGet();
-            if (response.isAcknowledged()) {
-                logger.info("{} field is created in {} index.", field, index);
-            } else {
-                logger.warn("Failed to create {} field in {} index.", field, index);
+            try {
+                final XContentBuilder mappingBuilder = XContentFactory.jsonBuilder()//
+                        .startObject()//
+                        .startObject("properties")//
+                        .startObject(field)//
+                        .field("type", "knn_vector")//
+                        .field("dimension", dimension)//
+                        .endObject()//
+                        .endObject()//
+                        .endObject();
+                final String source = BytesReference.bytes(mappingBuilder).utf8ToString();
+                AcknowledgedResponse response =
+                        client.admin().indices().preparePutMapping(index).setSource(source, XContentType.JSON).execute().actionGet();
+                if (response.isAcknowledged()) {
+                    logger.info("{} field is created in {} index.", field, index);
+                } else {
+                    logger.warn("Failed to create {} field in {} index.", field, index);
+                }
+            } catch (IOException e) {
+                logger.warn("Failed to create {} field in {} index.", field, index, e);
             }
-        } catch (IOException e) {
-            logger.warn("Failed to create {} field in {} index.", field, index, e);
-        }
+        });
     }
 
     @PreDestroy

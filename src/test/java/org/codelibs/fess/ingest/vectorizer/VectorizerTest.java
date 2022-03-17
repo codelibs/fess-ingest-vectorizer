@@ -95,7 +95,7 @@ public class VectorizerTest extends PlainTestCase {
         input.put("content", "");
         Map<String, float[]> output = vectorizer.vectorize(input);
         float[] values = output.get("content");
-        assertEquals(0, values.length);
+        assertEquals(768, values.length);
     }
 
     public void test_vectorize_ja() {
@@ -115,7 +115,7 @@ public class VectorizerTest extends PlainTestCase {
         input.put("content", "");
         Map<String, float[]> output = vectorizer.vectorize(input);
         float[] values = output.get("content");
-        assertEquals(0, values.length);
+        assertEquals(768, values.length);
     }
 
     public void test_vectorize_xx() {
