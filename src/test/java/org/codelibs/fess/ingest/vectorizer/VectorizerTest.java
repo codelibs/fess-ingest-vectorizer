@@ -94,8 +94,7 @@ public class VectorizerTest extends PlainTestCase {
         input.put("lang", "en");
         input.put("content", "");
         Map<String, float[]> output = vectorizer.vectorize(input);
-        float[] values = output.get("content");
-        assertEquals(768, values.length);
+        assertFalse(output.containsKey("content"));
     }
 
     public void test_vectorize_ja() {
@@ -114,8 +113,7 @@ public class VectorizerTest extends PlainTestCase {
         input.put("lang", "ja");
         input.put("content", "");
         Map<String, float[]> output = vectorizer.vectorize(input);
-        float[] values = output.get("content");
-        assertEquals(768, values.length);
+        assertFalse(output.containsKey("content"));
     }
 
     public void test_vectorize_xx() {
@@ -124,8 +122,7 @@ public class VectorizerTest extends PlainTestCase {
         input.put("lang", "xx");
         input.put("content", "this is a pen.");
         Map<String, float[]> output = vectorizer.vectorize(input);
-        float[] values = output.get("content");
-        assertEquals(768, values.length);
+        assertFalse(output.containsKey("content"));
     }
 
 }

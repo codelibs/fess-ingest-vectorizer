@@ -17,6 +17,7 @@ package org.codelibs.fess.ingest.vectorizer;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Optional;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -68,7 +69,9 @@ public class VectorizingIngester extends Ingester {
 
     protected void createFields(final int dimension) {
         for (String field : vectorizer.getFields()) {
-            createField(field + fieldSuffix, dimension);
+            for (String lang : vectorizer.getLanguages()) {
+                createField(field + "_" + lang + fieldSuffix, dimension);
+            }
         }
     }
 
@@ -123,7 +126,9 @@ public class VectorizingIngester extends Ingester {
     @Override
     protected Map<String, Object> process(final Map<String, Object> target) {
         if (vectorizer != null) {
-            vectorizer.vectorize(target).entrySet().stream().forEach(e -> target.put(e.getKey() + fieldSuffix, e.getValue()));
+            vectorizer.getLanguage(target).ifPresent(lang -> vectorizer.vectorize(target).entrySet().stream().forEach(e -> {
+                target.put(e.getKey() + "_" + lang + fieldSuffix, e.getValue());
+            }));
         }
         return target;
     }

@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.apache.commons.text.StringEscapeUtils;
@@ -35,8 +36,6 @@ import org.slf4j.LoggerFactory;
 
 public class Vectorizer {
     private static final Logger logger = LoggerFactory.getLogger(Vectorizer.class);
-
-    private static final String DEFAULT_LANG = "en";
 
     protected Set<String> supportedLanguages = Collections.emptySet();
 
@@ -64,28 +63,25 @@ public class Vectorizer {
         emptyValue = new float[dimension];
     }
 
-    protected Map<String, float[]> emtpyResult() {
-        final Map<String, float[]> map = new HashMap<>(fields.length);
-        for (final String f : fields) {
-            map.put(f, emptyValue);
-        }
-        return map;
-    }
-
-    public Map<String, float[]> vectorize(final Map<String, Object> input) {
+    public Optional<String> getLanguage(final Map<String, Object> input) {
         String lang = DocumentUtil.getValue(input, "lang", String.class);
         if (StringUtil.isBlank(lang)) {
-            if (logger.isDebugEnabled()) {
-                logger.debug("lang is empty.");
-            }
-            return emtpyResult();
+            return Optional.empty();
         }
 
         if (!supportedLanguages.contains(lang)) {
             if (logger.isDebugEnabled()) {
                 logger.debug("Unsupported lang: {}", lang);
             }
-            lang = DEFAULT_LANG;
+            return Optional.empty();
+        }
+        return Optional.of(lang);
+    }
+
+    public Map<String, float[]> vectorize(final Map<String, Object> input) {
+        final Optional<String> langOpt = getLanguage(input);
+        if (langOpt.isEmpty()) {
+            return Collections.emptyMap();
         }
 
         final StringBuilder bodyBuf = new StringBuilder(1000);
@@ -96,7 +92,7 @@ public class Vectorizer {
             bodyBuf.append("\"").append(StringEscapeUtils.escapeJson(field)).append("\":\"").append(StringEscapeUtils.escapeJson(value))
                     .append("\",");
         }
-        bodyBuf.append("\"lang\":\"").append(StringEscapeUtils.escapeJson(lang)).append("\"");
+        bodyBuf.append("\"lang\":\"").append(StringEscapeUtils.escapeJson(langOpt.get())).append("\"");
         bodyBuf.append('}');
         bodyBuf.append("]}");
 
@@ -135,7 +131,7 @@ public class Vectorizer {
             logger.warn("Failed to access to {}", url, e);
         }
 
-        return emtpyResult();
+        return Collections.emptyMap();
     }
 
     public boolean isActive() {
@@ -152,6 +148,10 @@ public class Vectorizer {
             return false;
         }
         return true;
+    }
+
+    public String[] getLanguages() {
+        return supportedLanguages.toArray(n -> new String[n]);
     }
 
     public String[] getFields() {

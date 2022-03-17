@@ -16,6 +16,7 @@
 package org.codelibs.fess.ingest.vectorizer;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 import org.codelibs.fess.mylasta.direction.FessConfig;
@@ -57,6 +58,9 @@ public class VectorizingIngesterTest extends LastaFluteTestCase {
                 return map;
             }
         };
+        ingester.vectorizer.supportedLanguages = new HashSet<>();
+        ingester.vectorizer.supportedLanguages.add("en");
+        ingester.vectorizer.supportedLanguages.add("ja");
     }
 
     @Override
@@ -65,12 +69,33 @@ public class VectorizingIngesterTest extends LastaFluteTestCase {
         super.tearDown();
     }
 
-    public void test_process() {
+    public void test_process_en() {
         Map<String, Object> input = new HashMap<>();
         input.put("lang", "en");
         input.put("content", "test");
         Map<String, Object> output = ingester.process(input);
         assertEquals("test", output.get("content"));
-        assertEquals(10, ((float[]) output.get("content_vector")).length);
+        assertEquals(10, ((float[]) output.get("content_en_vector")).length);
+        assertFalse(output.containsKey("content_ja_vector"));
+    }
+
+    public void test_process_ja() {
+        Map<String, Object> input = new HashMap<>();
+        input.put("lang", "ja");
+        input.put("content", "test");
+        Map<String, Object> output = ingester.process(input);
+        assertEquals("test", output.get("content"));
+        assertFalse(output.containsKey("content_en_vector"));
+        assertEquals(10, ((float[]) output.get("content_ja_vector")).length);
+    }
+
+    public void test_process_xx() {
+        Map<String, Object> input = new HashMap<>();
+        input.put("lang", "xx");
+        input.put("content", "test");
+        Map<String, Object> output = ingester.process(input);
+        assertEquals("test", output.get("content"));
+        assertFalse(output.containsKey("content_en_vector"));
+        assertFalse(output.containsKey("content_ja_vector"));
     }
 }
