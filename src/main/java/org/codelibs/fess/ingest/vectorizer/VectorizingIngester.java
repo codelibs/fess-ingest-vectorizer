@@ -17,7 +17,6 @@ package org.codelibs.fess.ingest.vectorizer;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.Optional;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -49,9 +48,10 @@ public class VectorizingIngester extends Ingester {
         EngineType engineType = getEngineType();
         if (engineType == EngineType.OPENSEARCH1) {
             logger.info("Search Engine: {}", engineType);
-            final int dimension = Integer.parseInt(ComponentUtil.getFessConfig().getSystemProperty("ingest.vectorizer.dimension", "768"));
-            final String url = ComponentUtil.getFessConfig().getSystemProperty("ingest.vectorizer.url");
-            final String fields = ComponentUtil.getFessConfig().getSystemProperty("ingest.vectorizer.fields");
+            final int dimension =
+                    Integer.parseInt(ComponentUtil.getFessConfig().getSystemProperty("semantic_search.vectorizer.dimension", "768"));
+            final String url = ComponentUtil.getFessConfig().getSystemProperty("semantic_search.vectorizer.url");
+            final String fields = ComponentUtil.getFessConfig().getSystemProperty("semantic_search.vectorizer.fields");
             vectorizer = Vectorizer.create()//
                     .url(url)//
                     .fields(fields)//
