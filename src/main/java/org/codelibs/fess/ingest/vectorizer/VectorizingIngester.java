@@ -45,7 +45,7 @@ public class VectorizingIngester extends Ingester {
 
     @PostConstruct
     public void init() {
-        EngineType engineType = getEngineType();
+        final EngineType engineType = getEngineType();
         if (engineType == EngineType.OPENSEARCH1) {
             logger.info("Search Engine: {}", engineType);
             final int dimension =
@@ -68,25 +68,25 @@ public class VectorizingIngester extends Ingester {
     }
 
     protected void createFields(final int dimension) {
-        for (String field : vectorizer.getFields()) {
-            for (String lang : vectorizer.getLanguages()) {
+        for (final String field : vectorizer.getFields()) {
+            for (final String lang : vectorizer.getLanguages()) {
                 createField(field + "_" + lang + fieldSuffix, dimension);
             }
         }
     }
 
     protected void createField(final String field, final int dimension) {
-        FessConfig fessConfig = ComponentUtil.getFessConfig();
-        SearchEngineClient client = ComponentUtil.getSearchEngineClient();
-        String alias = fessConfig.getIndexDocumentUpdateIndex();
+        final FessConfig fessConfig = ComponentUtil.getFessConfig();
+        final SearchEngineClient client = ComponentUtil.getSearchEngineClient();
+        final String alias = fessConfig.getIndexDocumentUpdateIndex();
 
-        GetFieldMappingsResponse fieldMappingsResponse = client.admin().indices().prepareGetFieldMappings()//
+        final GetFieldMappingsResponse fieldMappingsResponse = client.admin().indices().prepareGetFieldMappings()//
                 .setIndices(alias)//
                 .setFields(field)//
                 .execute().actionGet();
         final Map<String, Map<String, Map<String, FieldMappingMetadata>>> mappings = fieldMappingsResponse.mappings();
         mappings.keySet().stream().forEach(index -> {
-            Map<String, Map<String, FieldMappingMetadata>> fieldMappings = mappings.get(index);
+            final Map<String, Map<String, FieldMappingMetadata>> fieldMappings = mappings.get(index);
             if (!fieldMappings.isEmpty()) {
                 if (logger.isDebugEnabled()) {
                     logger.debug("{} field exists in {} index.", field, index);
@@ -105,14 +105,14 @@ public class VectorizingIngester extends Ingester {
                         .endObject()//
                         .endObject();
                 final String source = BytesReference.bytes(mappingBuilder).utf8ToString();
-                AcknowledgedResponse response =
+                final AcknowledgedResponse response =
                         client.admin().indices().preparePutMapping(index).setSource(source, XContentType.JSON).execute().actionGet();
                 if (response.isAcknowledged()) {
                     logger.info("{} field is created in {} index.", field, index);
                 } else {
                     logger.warn("Failed to create {} field in {} index.", field, index);
                 }
-            } catch (IOException e) {
+            } catch (final IOException e) {
                 logger.warn("Failed to create {} field in {} index.", field, index, e);
             }
         });

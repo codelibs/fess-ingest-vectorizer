@@ -64,7 +64,7 @@ public class Vectorizer {
     }
 
     public Optional<String> getLanguage(final Map<String, Object> input) {
-        String lang = DocumentUtil.getValue(input, "lang", String.class);
+        final String lang = DocumentUtil.getValue(input, "lang", String.class);
         if (StringUtil.isBlank(lang)) {
             return Optional.empty();
         }
